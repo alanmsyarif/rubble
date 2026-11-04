@@ -156,6 +156,12 @@ Blender (Python addon)                         Node 24 sidecar (TypeScript, unch
   - Copying back from the GPU and uploading the texture took about 2 ms each at 110k.
   - Only the instanced draw was measured on the Vulkan backend. Its speed on Blender's default OpenGL backend is
     not yet measured; see §9.
+  - **Measured 2026-11-04 on Blender's default OpenGL backend** (numpy poses, RGBA32F texture rebuilt each tick,
+    200 draws after 30 warm-up): **90 / 71 / 49 fps** at 110,592 / 262,144 / 512,000 bodies. Median draw interval
+    is fine but p95 is 42 / 51 / 24 ms, so there are occasional hitches. Pose upload 2.7 / 5.9 / 11.8 ms.
+- **Pipe throughput measured 2026-11-04:** Node to Python over a Windows pipe, 300 messages of 3,535,872 bytes
+  plus a 16-byte header, reader consuming as fast as possible: median 0.86-0.95 ms and p95 1.3-1.5 ms per message,
+  about 3,300 MB/s (3 runs).
 - `gpu.types.Buffer("FLOAT", n, ndarray)` costs about 0.01 ms; built from a Python list it costs 26 ms.
 - Blender crashes at shutdown if GPU objects sit in module-level globals (measured in an earlier project).
 - A GPUTexture can silently lose its contents (measured in an earlier project). Here that would only corrupt one
@@ -178,6 +184,9 @@ Blender (Python addon)                         Node 24 sidecar (TypeScript, unch
    draw handler on default Blender before building on it. *Assistant's call:* if OpenGL misses the §2 targets,
    v1 requires Blender's Vulkan backend (Preferences → System → Backend, or `--gpu-backend vulkan`). The addon
    detects the backend and shows that hint. No separate draw-optimisation track is planned for v1.
+   **Outcome (2026-11-04): PASS.** Default OpenGL gives 90 fps at 110k (threshold 60), so the Vulkan fallback does
+   not apply and the Vulkan hint is not needed for the 110k target. The panel hint still applies if the user wants
+   more headroom at 262k+ (71 / 49 fps OpenGL).
 3. **Shape coverage — resolved by the builder check.** Every v1 scene's physics uses only boxes and spheres,
    with no convex hulls.
 
