@@ -20,6 +20,8 @@ const error = (e: unknown) => {
 process.on('unhandledRejection', error);
 
 const device = await createDevice();
+// A real startup log through console.log: main.test's byte-exact stdout decode proves the redirect
+console.log(`rubble sidecar: WebGPU device ready (max storage binding ${device.limits.maxStorageBufferBindingSize} bytes)`);
 const session = new Session(device, write);
 write(encodeMessage(MSG.EVENT, { kind: 'ready' }));
 
