@@ -136,3 +136,23 @@ def test_view_under_mouse_skips_overlapping_regions():
     assert ops.view_under_mouse(screen, ev(-100, -100)) is None
     o, d = ops._ray(*ops.view_under_mouse(screen, ev(tools.x + 5, tools.y + 5)))  # view centre ray
     assert abs(d.length - 1) < 1e-6 and len(o) == 3
+
+
+def test_keys_pass_through_until_first_scene():
+    from rubble import ops
+    rubble.register()
+    try:
+        s = ops.Session("Wall Smash (2k)", {}, argv=FAKE)
+        sent = []
+        s.sidecar.send = sent.append
+        s.renderer.poses = None
+        for t in ("LEFTMOUSE", "SPACE", "R", "PERIOD"):
+            ev = SimpleNamespace(type=t, value="PRESS", ctrl=False, alt=False, shift=False, oskey=False,
+                                 mouse_x=0, mouse_y=0)
+            ctx = SimpleNamespace(window=SimpleNamespace(screen=bpy.context.window_manager.windows[0].screen))
+            assert ops.RUBBLE_OT_live._event(SimpleNamespace(session=s, drag_t=None, last_ball=0.0), ctx, ev) \
+                == {"PASS_THROUGH"}, t
+        assert sent == []
+        s.stop()
+    finally:
+        rubble.unregister()

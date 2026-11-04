@@ -1,3 +1,4 @@
+import sys
 import shutil
 import time
 
@@ -92,3 +93,38 @@ def test_brick_ring_110k_through_pipe(sc):
         assert len(step_frame(sc).binary) == n * 32
     assert sc.alive and sc.error is None
     stop_all()
+
+
+READY = ("import sys,time\nsys.path.insert(0,%r)\nfrom rubble.wire import *\n"
+         "o=sys.stdout.buffer\no.write(encode_message(MSG_EVENT,{'kind':'ready'}));o.flush()\n") % ROOT
+
+
+def test_event_error_clears_step_in_flight():
+    code = READY + ("for l in sys.stdin.buffer:\n o.write(encode_message(MSG_EVENT,{'kind':'error','message':'boom'}));o.flush()\n")
+    p = SidecarProcess(None, ROOT, argv=[sys.executable, "-c", code])
+    p.start()
+    try:
+        p.step_in_flight = True
+        p.send({"cmd": "step"})
+        assert wait_for(lambda: p.error == "boom", 3) and not p.step_in_flight
+    finally:
+        p.stop()
+
+
+def test_stop_kills_child_ignoring_stdin():
+    p = SidecarProcess(None, ROOT, argv=[sys.executable, "-c", READY + "time.sleep(60)\n"])
+    p.start()
+    t = time.time()
+    p.stop(timeout=0.5)
+    assert time.time() - t < 3 and p.proc.poll() is not None
+    p.stop()
+
+
+def test_death_error_includes_stderr_tail():
+    code = READY + "sys.stderr.write('Cannot find package three'+chr(10));sys.stderr.flush();time.sleep(0.3)\nsys.exit(1)\n"
+    p = SidecarProcess(None, ROOT, argv=[sys.executable, "-c", code])
+    p.start()
+    try:
+        assert wait_for(lambda: not p.alive, 3) and "Cannot find package three" in p.error
+    finally:
+        p.stop()

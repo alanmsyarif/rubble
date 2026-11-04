@@ -112,15 +112,23 @@ class Session:
         if self.stopped:
             return
         self.stopped = True  # R9: from here on the sidecar's "exited" error is ours, not a failure
-        if self.timer:
-            bpy.context.window_manager.event_timer_remove(self.timer)
-            self.timer = None
-        if self.handle:
-            bpy.types.SpaceView3D.draw_handler_remove(self.handle, "WINDOW")
-            self.handle = None
-        self.renderer.free()
-        self.sidecar.stop()
-        _redraw()
+        try:
+            try:
+                if self.timer:
+                    bpy.context.window_manager.event_timer_remove(self.timer)
+                self.timer = None
+            finally:
+                try:
+                    if self.handle:
+                        bpy.types.SpaceView3D.draw_handler_remove(self.handle, "WINDOW")
+                    self.handle = None
+                finally:
+                    self.renderer.free()
+        finally:
+            try:
+                self.sidecar.stop()
+            finally:
+                _redraw()
 
 
 def view_under_mouse(screen, event):
@@ -207,6 +215,8 @@ class RUBBLE_OT_live(bpy.types.Operator):
                 return {"RUNNING_MODAL"}
         if not view or v != "PRESS" or event.ctrl or event.alt or event.shift or event.oskey:
             return {"PASS_THROUGH"}
+        if s.renderer.poses is None and t in ("LEFTMOUSE", "SPACE", "R", "PERIOD"):
+            return {"PASS_THROUGH"}  # first scene still loading: don't fill the stdin pipe
         if t == "LEFTMOUSE":
             return self._grab(*view) if view[2] else {"PASS_THROUGH"}
         if t == "SPACE":

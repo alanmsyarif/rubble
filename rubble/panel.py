@@ -80,8 +80,11 @@ class RUBBLE_PT_panel(bpy.types.Panel):
                          icon="PAUSE" if p.playing else "PLAY")
             row.operator("rubble.step", text="", icon="FRAME_NEXT")
             row.operator("rubble.reset", text="", icon="FILE_REFRESH")
-            col.label(text=f"{p.fps:.0f} fps   step {p.step_ms:.1f} ms")
-            col.label(text=f"{p.bodies:,} bodies")
+            if p.bodies == 0:
+                col.label(text="Loading scene…", icon="TIME")
+            else:
+                col.label(text=f"{p.fps:.0f} fps   step {p.step_ms:.1f} ms")
+                col.label(text=f"{p.bodies:,} bodies")
             col.label(text="Drag LMB · Space ball · P · . · R · Esc")
         else:
             col.operator("rubble.live", icon="PLAY")

@@ -1,4 +1,5 @@
 """Node sidecar process manager. Pure module: no bpy."""
+import collections
 import json
 import re
 import shutil
@@ -43,6 +44,7 @@ class SidecarProcess:
         self._scene = None
         self._statics = []
         self._events = []
+        self._tail = collections.deque(maxlen=10)  # last stderr lines, for the death message
 
     def start(self):
         self.proc = subprocess.Popen(
@@ -61,7 +63,8 @@ class SidecarProcess:
         with self._cv:
             self.alive = False
             if self.error is None:
-                self.error = reason
+                tail = " | ".join(self._tail)
+                self.error = f"{reason}: {tail}" if tail else reason
             self._cv.notify_all()
 
     def _read_stdout(self):
@@ -84,6 +87,7 @@ class SidecarProcess:
                         elif m.type == MSG_EVENT:
                             if m.obj.get("kind") == "error":
                                 self.error = m.obj.get("message", "error")
+                                self.step_in_flight = False  # a failed step sends no FRAME
                             self._events.append(m.obj)
                         self._cv.notify_all()
         except ProtocolError as e:
@@ -92,11 +96,13 @@ class SidecarProcess:
             self._die(f"reader failed: {e}")
 
     def _read_stderr(self):
-        try:
-            for line in iter(self.proc.stderr.readline, b""):
-                print("[rubble sidecar]", line.decode(errors="replace").rstrip())
-        except Exception:
-            pass
+        for line in iter(self.proc.stderr.readline, b""):
+            try:  # one bad line must not kill the drain: a full stderr pipe freezes node
+                text = line.decode(errors="replace").rstrip()
+                self._tail.append(text)
+                print("[rubble sidecar]", text)
+            except Exception:
+                pass
 
     def send(self, cmd):
         if not self.alive:
@@ -138,9 +144,8 @@ class SidecarProcess:
         _RUNNING.discard(self)
         if p is None:
             return
-        self.send({"cmd": "quit"})
         self.alive = False
-        try:
+        try:  # stdin EOF is quit for main.ts; never write to the pipe here (it may be full)
             p.stdin.close()
         except (OSError, ValueError):
             pass
