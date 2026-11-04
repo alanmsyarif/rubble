@@ -178,8 +178,10 @@ Blender (Python addon)                         Node 24 sidecar (TypeScript, unch
 
 ## 9. Risks to check first in the plan
 
-1. **Pipe throughput.** Not yet measured: whether 3.5 MB per frame through a Windows pipe is read fast enough.
+1. **Pipe throughput.** Question: whether 3.5 MB per frame through a Windows pipe is read fast enough.
    If it isn't, fall back to a memory-mapped file shared by both processes.
+   **Outcome (2026-11-04): PASS.** Median 0.9 ms per 3.5 MB message against the 5 ms threshold; the pipe stays and no
+   memory-mapped file fallback is needed.
 2. **Draw speed on Blender's default OpenGL backend.** The 68 fps figure was measured on Vulkan. Measure the
    draw handler on default Blender before building on it. *Assistant's call:* if OpenGL misses the §2 targets,
    v1 requires Blender's Vulkan backend (Preferences → System → Backend, or `--gpu-backend vulkan`). The addon
@@ -187,6 +189,8 @@ Blender (Python addon)                         Node 24 sidecar (TypeScript, unch
    **Outcome (2026-11-04): PASS.** Default OpenGL gives 90 fps at 110k (threshold 60), so the Vulkan fallback does
    not apply and the Vulkan hint is not needed for the 110k target. The panel hint still applies if the user wants
    more headroom at 262k+ (71 / 49 fps OpenGL).
+   Caveat: p95 draw intervals were 42 / 51 / 24 ms at 110k / 262k / 512k, so there are occasional hitches even
+   though the median passes.
 3. **Shape coverage — resolved by the builder check.** Every v1 scene's physics uses only boxes and spheres,
    with no convex hulls.
 
