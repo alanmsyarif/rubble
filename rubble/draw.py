@@ -110,9 +110,15 @@ class BodyRenderer:
         self.poses_tex = gpu.types.GPUTexture(
             (TEX_W, h), format="RGBA32F", data=gpu.types.Buffer("FLOAT", self._host.size, self._host))
 
+    def instance_counts(self):
+        """Per-shape draw count: only bodies the last frame has a pose for (index lists are sorted)."""
+        n = 0 if self.poses is None else len(self.poses)
+        return {s: int(np.searchsorted(i, n)) for s, i in self.indices.items()}
+
     def draw(self, view_proj):
         if self.shader is None or self.poses_tex is None or self.statics_tex is None:
             return
+        depth_test, depth_mask = gpu.state.depth_test_get(), gpu.state.depth_mask_get()
         gpu.state.depth_test_set("LESS_EQUAL")
         gpu.state.depth_mask_set(True)
         sh = self.shader
@@ -121,12 +127,15 @@ class BodyRenderer:
         sh.uniform_int("texW", TEX_W)
         sh.uniform_sampler("poses", self.poses_tex)
         sh.uniform_sampler("statics", self.statics_tex)
-        for s, tex in self.index_tex.items():
+        for s, count in self.instance_counts().items():
+            if not count:
+                continue
             sh.uniform_int("ringScale", int(s not in (SHAPE_BOX, SHAPE_SPHERE)))
-            sh.uniform_sampler("index", tex)
-            self.batches[s].draw_instanced(sh, instance_start=0, instance_count=len(self.indices[s]))
+            sh.uniform_sampler("index", self.index_tex[s])
+            self.batches[s].draw_instanced(sh, instance_start=0, instance_count=count)
         self._draw_ropes(view_proj)
-        gpu.state.depth_test_set("NONE")
+        gpu.state.depth_test_set(depth_test)
+        gpu.state.depth_mask_set(depth_mask)
 
     def _draw_ropes(self, view_proj):
         n = len(self.poses)

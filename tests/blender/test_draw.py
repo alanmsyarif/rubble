@@ -102,3 +102,25 @@ def test_draw_offscreen_renders_body():
     assert px[32, 32 + 10, :3].max() == 0, px[32, 42]     # nothing right of centre
     row = px[int(64 * (0.5 + 0.45 / 2))]                  # rope at NDC y = 0.45
     assert ((row[:, 0] > 0.5) & (row[:, 1] < 0.1)).any(), row[:, :3].max(0)
+
+
+def test_bodies_without_pose_not_drawn():
+    # 10 boxes posed off-screen, then STATICS adds sphere 10 with no pose yet: it must not flash at the origin
+    r = BodyRenderer()
+    r.set_scene(_scene([0] * 10))
+    r.set_frame(_frame(10, pos=(5, 0, 0)))
+    r.add_statics(_msg(wire.MSG_STATICS, {"from": 10, "count": 1}, _statics([1]).tobytes()))
+    assert r.instance_counts() == {0: 10, 1: 0, 2: 0, 3: 0, 4: 0}
+    off = gpu.types.GPUOffScreen(64, 64)
+    with off.bind():
+        fb = gpu.state.active_framebuffer_get()
+        fb.clear(color=(0, 0, 0, 1), depth=1.0)
+        gpu.state.depth_test_set("NONE")
+        gpu.state.depth_mask_set(False)
+        r.draw(Matrix.Diagonal((0.5, 0.5, 0.5, 1)))
+        state = gpu.state.depth_test_get(), gpu.state.depth_mask_get()
+        px = np.array(fb.read_color(32, 32, 1, 1, 4, 0, "FLOAT").to_list()).ravel()
+    off.free()
+    r.free()
+    assert px[:3].max() == 0, px
+    assert state == ("NONE", False), state  # draw restores caller's depth state
