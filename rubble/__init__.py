@@ -4,6 +4,16 @@ import atexit
 
 from .sidecar import stop_all
 
+bl_info = {
+    "name": "Rubble",
+    "author": "Rubble contributors (three-avbd by Steven Bobyn, AVBD by Giles, Diaz, Yuksel)",
+    "version": (0, 1, 0),
+    "blender": (5, 2, 0),
+    "location": "3D Viewport > Sidebar (N) > Rubble",
+    "description": "three-avbd GPU rigid-body demo scenes live in the viewport (Node 24 sidecar)",
+    "category": "Physics",
+}
+
 
 def _classes():
     from . import ops, panel

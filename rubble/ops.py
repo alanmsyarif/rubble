@@ -42,6 +42,8 @@ class Session:
         self._interval = 0.0  # smoothed seconds between applied frames
         self._last_frame = None
         self._due = 0.0  # when the next playing step may be sent
+        if not argv and not Path(REPO_ROOT, "sidecar", "main.ts").is_file():
+            raise SidecarError(f"Rubble solver not found at {REPO_ROOT}\\sidecar - link the addon folder from the repo, don't copy it")
         self.sidecar = SidecarProcess(None if argv else find_node(node_path), REPO_ROOT, argv)
         self.sidecar.start()
         try:
