@@ -1,0 +1,12 @@
+{
+  "name": "rubble",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:sidecar": "node --experimental-transform-types --no-warnings --test sidecar/tests/*.test.ts"
+  },
+  "dependencies": {
+    "webgpu": "0.6.1",
+    "three": "0.187.0"
+  }
+}
